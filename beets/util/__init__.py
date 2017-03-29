@@ -447,6 +447,33 @@ def copy(path, dest, replace=False):
                               traceback.format_exc())
 
 
+def copy_directory(src, tgt):
+    """Copy a directory recursively.
+
+    Permissions are not copied. If `tgt` already exists, raises a
+    FilesystemError unless `replace` is True. Has no effect if `src`
+    is the same as `tgt`. Paths are translated to system paths
+    before the syscall.
+    """
+    if samefile(src, tgt):
+        return
+    src = bytestring_path(syspath(src))
+    tgt = bytestring_path(syspath(tgt))
+    try:
+        for root, dirs, files in sorted_walk(src):
+            tgt_root = os.path.join(tgt, root[len(src) + 1:])
+            if not os.path.exists(tgt_root):
+                os.makedirs(tgt_root)
+
+            for filename in files:
+                src_filename = os.path.join(src, root, filename)
+                tgt_filename = unique_path(os.path.join(tgt_root, filename))
+                copy(src_filename, tgt_filename)
+    except (OSError, IOError) as exc:
+        raise FilesystemError(exc, 'copy', (src, tgt),
+                              traceback.format_exc())
+
+
 def move(path, dest, replace=False):
     """Rename a file. `dest` may not be a directory. If `dest` already
     exists, raises an OSError unless `replace` is True. Has no effect if
@@ -473,6 +500,49 @@ def move(path, dest, replace=False):
         except (OSError, IOError) as exc:
             raise FilesystemError(exc, 'move', (path, dest),
                                   traceback.format_exc())
+
+
+def move_directory(src, tgt):
+    """Rename a directory from src to tgt.
+
+    `tgt` may not be a directory. If `tgt` already
+    exists, raises an OSError unless `replace` is True. Has no effect if
+    `src` is the same as `tgt`. If the paths are on different
+    filesystems (or the rename otherwise fails), a copy is attempted
+    instead, in which case metadata will *not* be preserved. Paths are
+    translated to system paths.
+    """
+    if samefile(src, tgt):
+        return
+    src = bytestring_path(syspath(src))
+    tgt = bytestring_path(syspath(tgt))
+    if not os.path.exists(tgt):
+        try:
+            os.rename(src, tgt)
+            return
+        except OSError:
+            pass
+
+    try:
+        for root, dirs, files in sorted_walk(src):
+            tgt_root = os.path.join(tgt, root[len(src) + 1:])
+            if not os.path.exists(tgt_root):
+                os.makedirs(tgt_root)
+
+            for filename in files:
+                src_filename = os.path.join(src, root, filename)
+                tgt_filename = unique_path(os.path.join(tgt_root, filename))
+                move(src_filename, tgt_filename)
+
+            for dirname in dirs:
+                src_filename = os.path.join(src, root, dirname)
+                tgt_filename = os.path.join(tgt_root, dirname)
+                move_directory(src_filename, tgt_filename)
+
+        os.rmdir(src)
+    except (OSError, IOError) as exc:
+        raise FilesystemError(exc, 'move', (src, tgt),
+                              traceback.format_exc())
 
 
 def link(path, dest, replace=False):
