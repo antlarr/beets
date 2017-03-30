@@ -71,7 +71,7 @@ class AttachFilesPlugin(BeetsPlugin):
         self._log.debug(u"Attaching {0} to {1}", source_dir, destination_dir)
 
         source_files = os.listdir(source_dir)
-        for attachment_pattern in self.config['files'].as_str_seq():
+        for attachment_pattern in self.config['patterns'].as_str_seq():
             for name in source_files:
                 if fnmatch.fnmatch(name, bytestring_path(attachment_pattern)):
                     src = os.path.join(source_dir, name)
@@ -122,7 +122,7 @@ class AttachFilesPlugin(BeetsPlugin):
         removable_contents = [os.path.basename(item.path)]
 
         for name in contents:
-            for attachment_pattern in self.config['files'].as_str_seq():
+            for attachment_pattern in self.config['patterns'].as_str_seq():
                 if fnmatch.fnmatch(name, bytestring_path(attachment_pattern)):
                     removable_contents.append(name)
                     break
