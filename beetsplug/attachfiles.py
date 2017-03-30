@@ -1,6 +1,8 @@
 from beets.plugins import BeetsPlugin
-from beets.util import py3_path, copy_directory, copy, move_directory, move
+from beets.util import (bytestring_path, syspath,
+                        copy_directory, copy, move_directory, move)
 import os
+import shutil
 import fnmatch
 
 
@@ -18,9 +20,23 @@ def move_file_or_directory(src, tgt):
         move(src, tgt)
 
 
+def remove_file_or_directory(path):
+    if os.path.isdir(path) and not os.path.islink(path):
+        shutil.rmtree(path)
+    else:
+        os.unlink(path)
+
+
 class AttachFilesPlugin(BeetsPlugin):
     def __init__(self):
         super(AttachFilesPlugin, self).__init__()
+        self.config.add({
+            'allow_multiple_copies': False,
+            'allow_remove': True
+        })
+        self.allow_multiple_copies = self.config['allow_multiple_copies']
+        self.allow_remove = self.config['allow_remove']
+
         self.register_listener('album_imported', self.album_imported)
         self.register_listener('item_copied', self.item_copied)
         self.register_listener('item_imported', self.item_imported)
@@ -38,15 +54,28 @@ class AttachFilesPlugin(BeetsPlugin):
 
     def attach_files(self, source_dir, destination_dir, copy=False,
                      move=False, link=False, hardlink=False):
-        if source_dir in self.directories_already_imported:
+        if self.allow_multiple_copies:
+            identifier = (source_dir, destination_dir)
+        else:
+            identifier = source_dir
+
+        if identifier in self.directories_already_imported:
+            if self.allow_multiple_copies:
+                self._log.debug(u"{0} already attached to {1}",
+                                source_dir, destination_dir)
+            else:
+                self._log.debug(u"{0} already attached and multiple copies not"
+                                " allowed", source_dir, destination_dir)
             return
 
-        source_files = [py3_path(x) for x in os.listdir(source_dir)]
+        self._log.debug(u"Attaching {0} to {1}", source_dir, destination_dir)
+
+        source_files = os.listdir(source_dir)
         for attachment_pattern in self.config['files'].as_str_seq():
             for name in source_files:
-                if fnmatch.fnmatch(name, attachment_pattern):
-                    src = os.path.join(py3_path(source_dir), name)
-                    tgt = os.path.join(py3_path(destination_dir), name)
+                if fnmatch.fnmatch(name, bytestring_path(attachment_pattern)):
+                    src = os.path.join(source_dir, name)
+                    tgt = os.path.join(destination_dir, name)
                     if copy:
                         copy_file_or_directory(src, tgt)
                     elif move:
@@ -58,11 +87,11 @@ class AttachFilesPlugin(BeetsPlugin):
                         print('attach files by hardlinking not implemented yet'
                               '(%s, %s)' % (src, tgt))
 
-        self.directories_already_imported.append(source_dir)
+        self.directories_already_imported.append(identifier)
 
     def item_copied(self, item, source, destination):
-        source_dir = os.path.dirname(source)
-        destination_dir = os.path.dirname(destination)
+        source_dir = os.path.dirname(syspath(source))
+        destination_dir = os.path.dirname(syspath(destination))
         self.attach_files(source_dir, destination_dir, copy=True)
 
     def item_moved(self, item, source, destination):
@@ -76,26 +105,32 @@ class AttachFilesPlugin(BeetsPlugin):
         self.attach_files(source_dir, destination_dir, link=True)
 
     def item_hardlinked(self, item, source, destination):
-        source_dir = os.path.dirname(source)
-        destination_dir = os.path.dirname(destination)
+        source_dir = os.path.dirname(syspath(source))
+        destination_dir = os.path.dirname(syspath(destination))
         self.attach_files(source_dir, destination_dir, hardlink=True)
 
     def item_removed(self, item):
-        directory = os.path.dirname(item.path)
+        if not self.allow_remove:
+            return
+
+        directory = os.path.dirname(syspath(item.path))
         try:
-            contents = [py3_path(x) for x in os.listdir(directory)]
+            contents = os.listdir(directory)
         except FileNotFoundError:
             return
 
-        try:
-            contents.remove(os.path.basename(item.path))
-        except ValueError:
-            pass
-        for attachment_pattern in self.config['files'].as_str_seq():
-            try:
-                contents = [name for name in contents
-                            if not fnmatch.fnmatch(name, attachment_pattern)]
-            except ValueError:
-                pass
-        if not contents:
-            print('Remove %s and the attachments within not implemented yet' % directory)
+        removable_contents = [os.path.basename(item.path)]
+
+        for name in contents:
+            for attachment_pattern in self.config['files'].as_str_seq():
+                if fnmatch.fnmatch(name, bytestring_path(attachment_pattern)):
+                    removable_contents.append(name)
+                    break
+
+        if sorted(removable_contents) == sorted(contents):
+            removable_contents = removable_contents[1:]
+            self._log.debug(u"Removing attachments in {0} : {1}",
+                            directory, removable_contents)
+
+            for name in removable_contents:
+                remove_file_or_directory(os.path.join(directory, name))
