@@ -447,7 +447,7 @@ def copy(path, dest, replace=False):
                               traceback.format_exc())
 
 
-def copy_directory(src, tgt):
+def recurse_directory(src, tgt, operation):
     """Copy a directory recursively.
 
     Permissions are not copied. If `tgt` already exists, raises a
@@ -468,10 +468,14 @@ def copy_directory(src, tgt):
             for filename in files:
                 src_filename = os.path.join(src, root, filename)
                 tgt_filename = unique_path(os.path.join(tgt_root, filename))
-                copy(src_filename, tgt_filename)
+                operation(src_filename, tgt_filename)
     except (OSError, IOError) as exc:
         raise FilesystemError(exc, 'copy', (src, tgt),
                               traceback.format_exc())
+
+
+def copy_directory(src, tgt):
+    recurse_directory(src, tgt, copy)
 
 
 def move(path, dest, replace=False):
@@ -592,6 +596,10 @@ def hardlink(path, dest, replace=False):
         else:
             raise FilesystemError(exc, 'link', (path, dest),
                                   traceback.format_exc())
+
+
+def hardlink_directory_contents(src, tgt):
+    recurse_directory(src, tgt, hardlink)
 
 
 def unique_path(path):
