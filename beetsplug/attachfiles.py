@@ -1,6 +1,7 @@
 from beets.plugins import BeetsPlugin
-from beets.util import (bytestring_path, syspath,
-                        copy_directory, copy, move_directory, move)
+from beets.util import (bytestring_path, syspath, copy_directory,
+                        move_directory, hardlink_directory_contents)
+import beets.util
 import os
 import shutil
 import fnmatch
@@ -10,14 +11,14 @@ def copy_file_or_directory(src, tgt):
     if os.path.isdir(src):
         copy_directory(src, tgt)
     else:
-        copy(src, tgt)
+        beets.util.copy(src, tgt)
 
 
 def move_file_or_directory(src, tgt):
     if os.path.isdir(src):
         move_directory(src, tgt)
     else:
-        move(src, tgt)
+        beets.util.move(src, tgt)
 
 
 def remove_file_or_directory(path):
@@ -25,6 +26,13 @@ def remove_file_or_directory(path):
         shutil.rmtree(path)
     else:
         os.unlink(path)
+
+
+def hardlink_file_or_directory(src, tgt):
+    if os.path.isdir(src):
+        hardlink_directory_contents(src, tgt)
+    else:
+        beets.util.hardlink(src, tgt)
 
 
 class AttachFilesPlugin(BeetsPlugin):
@@ -81,11 +89,9 @@ class AttachFilesPlugin(BeetsPlugin):
                     elif move:
                         move_file_or_directory(src, tgt)
                     elif link:
-                        print('attach_files by symlinking not implemented yet'
-                              '(%s, %s)' % (src, tgt))
+                        beets.util.link(tgt, src)
                     elif hardlink:
-                        print('attach files by hardlinking not implemented yet'
-                              '(%s, %s)' % (src, tgt))
+                        hardlink_file_or_directory(src, tgt)
 
         self.directories_already_imported.append(identifier)
 
