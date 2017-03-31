@@ -109,8 +109,8 @@ class AttachFilesPlugin(BeetsPlugin):
         destination_dir = os.path.dirname(syspath(destination))
         self.attach_files(source_dir, destination_dir, hardlink=True)
 
-    def item_removed(self, item):
-        if not self.allow_remove:
+    def item_removed(self, item, delete):
+        if not delete or not self.allow_remove:
             return
 
         directory = os.path.dirname(syspath(item.path))
