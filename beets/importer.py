@@ -522,11 +522,11 @@ class ImportTask(BaseImportTask):
         duplicate_items = self.duplicate_items(lib)
         log.debug(u'removing {0} old duplicated items', len(duplicate_items))
         for item in duplicate_items:
-            item.remove()
-            if lib.directory in util.ancestry(item.path):
+            delete = lib.directory in util.ancestry(item.path)
+            item.remove(delete=delete, prune_dirs=False)
+            if delete:
                 log.debug(u'deleting duplicate {0}',
                           util.displayable_path(item.path))
-                util.remove(item.path)
                 util.prune_dirs(os.path.dirname(item.path),
                                 lib.directory)
 
