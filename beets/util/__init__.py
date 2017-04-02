@@ -448,12 +448,15 @@ def copy(path, dest, replace=False):
 
 
 def recurse_directory(src, tgt, operation):
-    """Copy a directory recursively.
+    """Recurse over a source and tgt directory executing an operation.
 
-    Permissions are not copied. If `tgt` already exists, raises a
-    FilesystemError unless `replace` is True. Has no effect if `src`
-    is the same as `tgt`. Paths are translated to system paths
-    before the syscall.
+    This is a helper function to copy_directory and hardlink_directory
+    which iterates over the subdirectories of `src` creating the
+    respective directories under `tgt` and calling `operation` with
+    two parameters, the file under `src` and the new file under `tgt`
+    (which, if already exists, is given an unique name)
+
+    Has no effect if `src` is the same as `tgt`.
     """
     if samefile(src, tgt):
         return
@@ -475,6 +478,12 @@ def recurse_directory(src, tgt, operation):
 
 
 def copy_directory(src, tgt):
+    """Copy a directory tree recursively from src to tgt.
+
+    Internally calls `copy` to copy files, so some of its
+    exceptions can be raised here too. If a target file already exists
+    it's given an unique name.
+    """
     recurse_directory(src, tgt, copy)
 
 
@@ -509,12 +518,16 @@ def move(path, dest, replace=False):
 def move_directory(src, tgt):
     """Rename a directory from src to tgt.
 
-    `tgt` may not be a directory. If `tgt` already
-    exists, raises an OSError unless `replace` is True. Has no effect if
-    `src` is the same as `tgt`. If the paths are on different
-    filesystems (or the rename otherwise fails), a copy is attempted
-    instead, in which case metadata will *not* be preserved. Paths are
-    translated to system paths.
+    If `tgt` already exists, its contents are iterated recursively, required
+    subdirectories are created under tgt and files/directories are moved
+    individually. Internally calls `move` to move files, so some of its
+    exceptions can be raised here too. If a target file already exists
+    it's given an unique name.
+
+    Has no effect if `src` is the same as `tgt`. This calls `move` internally
+    to move files, so if the paths are on different filesystems (or the rename
+    otherwise fails), a copy is attempted instead, in which case metadata
+    will *not* be preserved. Paths are translated to system paths.
     """
     if samefile(src, tgt):
         return
@@ -550,9 +563,9 @@ def move_directory(src, tgt):
 
 
 def link(path, dest, replace=False):
-    """Create a symbolic link from path to `dest`. Raises an OSError if
-    `dest` already exists, unless `replace` is True. Does nothing if
-    `path` == `dest`.
+    """Create a symbolic link pointing to `path` named `dest`.
+    Raises an OSError if `dest` already exists, unless `replace`
+    is True. Does nothing if `path` == `dest`.
     """
     if samefile(path, dest):
         return
@@ -599,6 +612,14 @@ def hardlink(path, dest, replace=False):
 
 
 def hardlink_directory_contents(src, tgt):
+    """Create hardlinks recursively pointing to the files in `src` from `tgt`.
+
+    This iterates over the directories of `src` creating (or reusing) the
+    respective tree under `tgt`. Files under `src` are hardlinked from the
+    respective `tgt` subdirectory. If a file already exists under tgt, it's
+    given an unique name. This function calls hardlink internally, so some of
+    its exceptions can be raised.
+    """
     recurse_directory(src, tgt, hardlink)
 
 
