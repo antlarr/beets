@@ -711,11 +711,10 @@ class Item(LibModel):
 
     # Model methods.
 
-    def remove(self, delete=False, with_album=True, prune_dirs=True):
+    def remove(self, delete=False, with_album=True):
         """Removes the item. If `delete`, then the associated file is
         removed from disk. If `with_album`, then the item's album (if
-        any) is removed if it the item was the last in the album. If
-        `prune_dirs` and `delete`, then the directories are pruned
+        any) is removed if it the item was the last in the album.
         """
         super(Item, self).remove()
 
@@ -731,8 +730,7 @@ class Item(LibModel):
         # Delete the associated file.
         if delete:
             util.remove(self.path)
-            if prune_dirs:
-                util.prune_dirs(os.path.dirname(self.path), self._db.directory)
+            util.prune_dirs(os.path.dirname(self.path), self._db.directory)
 
         self._db._memotable = {}
 

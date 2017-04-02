@@ -523,12 +523,7 @@ class ImportTask(BaseImportTask):
         log.debug(u'removing {0} old duplicated items', len(duplicate_items))
         for item in duplicate_items:
             delete = lib.directory in util.ancestry(item.path)
-            item.remove(delete=delete, prune_dirs=False)
-            if delete:
-                log.debug(u'deleting duplicate {0}',
-                          util.displayable_path(item.path))
-                util.prune_dirs(os.path.dirname(item.path),
-                                lib.directory)
+            item.remove(delete=delete)
 
     def finalize(self, session):
         """Save progress, clean up files, and emit plugin event.
