@@ -1,6 +1,7 @@
 from beets.plugins import BeetsPlugin
 from beets.util import (bytestring_path, syspath, copy_directory,
-                        move_directory, hardlink_directory_contents)
+                        move_directory, hardlink_directory_contents,
+                        samefile, unique_path)
 import beets.util
 import os
 import shutil
@@ -8,17 +9,56 @@ import fnmatch
 
 
 def copy_file_or_directory(src, tgt):
+    if samefile(src, tgt):
+        return
+    src = syspath(src)
+    tgt = syspath(tgt)
+
     if os.path.isdir(src):
         copy_directory(src, tgt)
     else:
+        if os.path.exists(tgt):
+            tgt = unique_path(tgt)
         beets.util.copy(src, tgt)
 
 
 def move_file_or_directory(src, tgt):
+    if samefile(src, tgt):
+        return
+    src = syspath(src)
+    tgt = syspath(tgt)
+
     if os.path.isdir(src):
         move_directory(src, tgt)
     else:
+        if os.path.exists(tgt):
+            tgt = unique_path(tgt)
         beets.util.move(src, tgt)
+
+
+def link_file_or_directory(src, tgt):
+    if samefile(src, tgt):
+        return
+    src = syspath(src)
+    tgt = syspath(tgt)
+
+    if os.path.exists(tgt):
+        tgt = unique_path(tgt)
+    beets.util.link(src, tgt)
+
+
+def hardlink_file_or_directory(src, tgt):
+    if samefile(src, tgt):
+        return
+    src = syspath(src)
+    tgt = syspath(tgt)
+
+    if os.path.isdir(src):
+        hardlink_directory_contents(src, tgt)
+    else:
+        if os.path.exists(tgt):
+            tgt = unique_path(tgt)
+        beets.util.hardlink(src, tgt)
 
 
 def remove_file_or_directory(path):
@@ -26,13 +66,6 @@ def remove_file_or_directory(path):
         shutil.rmtree(path)
     else:
         os.unlink(path)
-
-
-def hardlink_file_or_directory(src, tgt):
-    if os.path.isdir(src):
-        hardlink_directory_contents(src, tgt)
-    else:
-        beets.util.hardlink(src, tgt)
 
 
 class AttachFilesPlugin(BeetsPlugin):
@@ -89,7 +122,7 @@ class AttachFilesPlugin(BeetsPlugin):
                     elif move:
                         move_file_or_directory(src, tgt)
                     elif link:
-                        beets.util.link(tgt, src)
+                        link_file_or_directory(src, tgt)
                     elif hardlink:
                         hardlink_file_or_directory(src, tgt)
 
